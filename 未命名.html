@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>中文打字打怪冒險</title>
+  <!-- 引入Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入Font Awesome圖標 -->
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  
+  <!-- 自定義配置 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#6366f1', // 主色調：紫色
+            secondary: '#ec4899', // 次要色：粉紅色
+            monster: '#ef4444', // 怪物色：紅色
+            monsterDark: '#b91c1c', // 怪物深色
+            monsterLight: '#f87171', // 怪物淺色
+            player: '#3b82f6', // 玩家色：藍色
+            success: '#10b981', // 成功色：綠色
+            danger: '#ef4444', // 危險色：紅色
+          },
+          fontFamily: {
+            game: ['"Ma Shan Zheng"', '"Noto Sans SC"', 'cursive', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+  
+  <!-- 自定義工具類 -->
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .text-shadow {
+        text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      }
+      .monster-bounce {
+        animation: bounce 1.5s infinite alternate;
+      }
+      .monster-breath {
+        animation: breath 3s infinite ease-in-out;
+      }
+      .monster-attack {
+        animation: attack 0.5s ease-in-out;
+      }
+      .player-glow {
+        box-shadow: 0 0 15px rgba(59, 130, 246, 0.7);
+      }
+      .monster-glow {
+        box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+      }
+      .damage-flash {
+        animation: flash 0.3s ease-in-out;
+      }
+      .type-correct {
+        animation: correct 0.5s ease-in-out;
+      }
+      .type-error {
+        animation: error 0.3s ease-in-out;
+      }
+      .health-pulse {
+        animation: pulse 2s infinite ease-in-out;
+      }
+    }
+    
+    /* 動畫定義 */
+    @keyframes bounce {
+      from { transform: translateY(0) scale(1); }
+      to { transform: translateY(-15px) scale(1.05); }
+    }
+    @keyframes breath {
+      0% { transform: scale(1); box-shadow: 0 0 20px rgba(239, 68, 68, 0.5); }
+      50% { transform: scale(1.08); box-shadow: 0 0 30px rgba(239, 68, 68, 0.7); }
+      100% { transform: scale(1); box-shadow: 0 0 20px rgba(239, 68, 68, 0.5); }
+    }
+    @keyframes attack {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1) rotate(5deg); }
+      100% { transform: scale(1); }
+    }
+    @keyframes flash {
+      0% { background-color: rgba(239, 68, 68, 0.3); }
+      100% { background-color: transparent; }
+    }
+    @keyframes correct {
+      0% { transform: scale(1.1); color: #10b981; }
+      100% { transform: scale(1); }
+    }
+    @keyframes error {
+      0% { transform: translateX(-5px); }
+      50% { transform: translateX(5px); }
+      100% { transform: translateX(0); }
+    }
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.7; }
+      100% { opacity: 1; }
+    }
+  </style>
+  
+  <!-- 引入中文字體 -->
+  <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Sans+SC:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-gray-900 to-gray-800 text-white min-h-screen font-game overflow-x-hidden">
+  <!-- 遊戲容器 -->
+  <div class="container mx-auto px-4 py-6 max-w-5xl">
+    <!-- 標題區域 -->
+    <header class="text-center mb-6">
+      <h1 class="text-[clamp(2rem,5vw,3.5rem)] font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary mb-2 text-shadow">中文打字打怪冒險</h1>
+      <p class="text-gray-300 text-[clamp(1rem,2vw,1.2rem)]">正確輸入文字攻擊怪物，闖過所有難關！</p>
+    </header>
+    
+    <!-- 遊戲狀態欄 -->
+    <div class="flex flex-wrap justify-between items-center mb-6 bg-gray-800/50 rounded-lg p-4 backdrop-blur-sm border border-gray-700">
+      <div class="flex items-center mb-2 sm:mb-0">
+        <i class="fa fa-heart text-danger text-xl mr-2"></i>
+        <span class="text-[clamp(1rem,2vw,1.2rem)]">生命值: <span id="player-health" class="font-bold">100</span></span>
+      </div>
+      <div class="flex items-center mb-2 sm:mb-0 mx-4 sm:mx-6">
+        <i class="fa fa-star text-yellow-400 text-xl mr-2"></i>
+        <span class="text-[clamp(1rem,2vw,1.2rem)]">分數: <span id="score" class="font-bold">0</span></span>
+      </div>
+      <div class="flex items-center">
+        <i class="fa fa-level-up text-primary text-xl mr-2"></i>
+        <span class="text-[clamp(1rem,2vw,1.2rem)]">等級: <span id="level" class="font-bold">1</span></span>
+      </div>
+    </div>
+    
+    <!-- 遊戲主區域 -->
+    <main class="relative">
+      <!-- 開始畫面 -->
+      <div id="start-screen" class="text-center py-12">
+        <div class="max-w-md mx-auto bg-gray-800/70 p-8 rounded-xl backdrop-blur-sm border border-gray-700 shadow-xl">
+          <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold mb-4 text-primary">準備冒險！</h2>
+          <p class="text-gray-300 mb-6">選擇難度開始遊戲，輸入畫面上顯示的中文詞語攻擊怪物</p>
+          
+          <div class="flex flex-col sm:flex-row justify-center gap-4 mb-8">
+            <button id="easy-mode" class="px-6 py-3 rounded-lg bg-green-600 hover:bg-green-700 transition-all duration-300 font-bold text-lg shadow-lg hover:shadow-green-600/30">
+              初學者 (簡單詞語)
+            </button>
+            <button id="medium-mode" class="px-6 py-3 rounded-lg bg-yellow-600 hover:bg-yellow-700 transition-all duration-300 font-bold text-lg shadow-lg hover:shadow-yellow-600/30">
+              冒險者 (中等詞語)
+            </button>
+            <button id="hard-mode" class="px-6 py-3 rounded-lg bg-red-600 hover:bg-red-700 transition-all duration-300 font-bold text-lg shadow-lg hover:shadow-red-600/30">
+              勇者 (困難詞語)
+            </button>
+          </div>
+          
+          <div class="text-left bg-gray-700/50 p-4 rounded-lg mb-6">
+            <h3 class="font-bold text-lg mb-2 text-secondary">遊戲規則：</h3>
+            <ul class="list-disc list-inside text-gray-300 space-y-1">
+              <li>正確輸入顯示的中文詞語攻擊怪物</li>
+              <li>輸入錯誤會受到怪物反擊</li>
+              <li>消滅怪物獲得分數，累積分數升級</li>
+              <li>生命值歸零遊戲結束</li>
+            </ul>
+          </div>
+          
+          <button id="start-game" class="px-8 py-4 bg-gradient-to-r from-primary to-secondary rounded-lg text-xl font-bold shadow-xl hover:shadow-primary/50 transition-all duration-300 transform hover:scale-105">
+            開始遊戲 <i class="fa fa-play ml-2"></i>
+          </button>
+        </div>
+      </div>
+      
+      <!-- 遊戲畫面 (預設隱藏) -->
+      <div id="game-screen" class="hidden">
+        <!-- 戰鬥區域 -->
+        <div class="flex flex-col md:flex-row items-center justify-between mb-8">
+          <!-- 玩家 -->
+          <div class="w-32 h-32 md:w-40 md:h-40 bg-player/20 rounded-full flex items-center justify-center mb-6 md:mb-0 player-glow relative">
+            <div class="absolute inset-0 bg-player/10 rounded-full blur-md"></div>
+            <i class="fa fa-user-circle text-5xl md:text-6xl text-player relative z-10"></i>
+            <div class="absolute bottom-0 w-2/3 h-2 bg-success rounded-full" id="player-health-bar">
+              <div class="h-full bg-success rounded-full" id="player-health-fill" style="width: 100%"></div>
+            </div>
+            <div class="absolute -bottom-8 text-sm font-bold text-player">
+              玩家
+            </div>
+          </div>
+          
+          <!-- 對戰箭頭 -->
+          <div class="hidden md:flex items-center text-4xl text-gray-500">
+            <i class="fa fa-exchange"></i>
+          </div>
+          <div class="md:hidden text-3xl text-gray-500 mb-4">
+            <i class="fa fa-arrow-down"></i>
+          </div>
+          
+          <!-- 增強版怪物 -->
+          <div class="relative w-40 h-40 md:w-56 md:h-56 mb-6 md:mb-0">
+            <!-- 怪物本體 -->
+            <div class="absolute inset-0 flex items-center justify-center monster-bounce monster-breath monster-glow" id="monster">
+              <!-- 怪物底層 (陰影) -->
+              <div class="absolute inset-4 bg-monsterDark/30 rounded-full blur-lg"></div>
+              <!-- 怪物中層 (本體) -->
+              <div class="absolute inset-0 bg-gradient-to-br from-monster to-monsterDark rounded-full flex items-center justify-center border-4 border-monsterLight/50">
+                <!-- 怪物眼睛 -->
+                <div class="absolute top-1/4 left-1/3 w-4 h-4 md:w-6 md:h-6 bg-white rounded-full"></div>
+                <div class="absolute top-1/4 right-1/3 w-4 h-4 md:w-6 md:h-6 bg-white rounded-full"></div>
+                <!-- 怪物瞳孔 -->
+                <div class="absolute top-1/4 left-1/3 w-2 h-2 md:w-3 md:h-3 bg-black rounded-full"></div>
+                <div class="absolute top-1/4 right-1/3 w-2 h-2 md:w-3 md:h-3 bg-black rounded-full"></div>
+                <!-- 怪物嘴巴 -->
+                <div class="absolute bottom-1/4 w-12 h-6 md:w-16 md:h-8 border-b-4 border-black rounded-b-full"></div>
+                <!-- 怪物獠牙 -->
+                <div class="absolute bottom-1/4 left-[30%] w-1 h-3 md:w-2 md:h-4 bg-white"></div>
+                <div class="absolute bottom-1/4 right-[30%] w-1 h-3 md:w-2 md:h-4 bg-white"></div>
+                <!-- 怪物角 -->
+                <div class="absolute top-0 left-1/4 w-4 h-8 md:w-6 md:h-12 bg-monsterDark rounded-t-full transform -rotate-30"></div>
+                <div class="absolute top-0 right-1/4 w-4 h-8 md:w-6 md:h-12 bg-monsterDark rounded-t-full transform rotate-30"></div>
+                <!-- 怪物圖標 (核心) -->
+                <i class="fa fa-dragon text-6xl md:text-8xl text-black/70 relative z-10" id="monster-icon"></i>
+              </div>
+            </div>
+            
+            <!-- 怪物血量條 (增強版) -->
+            <div class="absolute -bottom-12 left-1/2 transform -translate-x-1/2 w-full md:w-48 bg-gray-700 rounded-full h-4 border border-gray-600">
+              <div class="h-full bg-gradient-to-r from-danger to-monster rounded-full transition-all duration-500" id="monster-health-fill" style="width: 100%"></div>
+            </div>
+            
+            <!-- 怪物血量數值顯示 -->
+            <div class="absolute -bottom-18 left-1/2 transform -translate-x-1/2 text-sm md:text-base font-bold text-monsterLight health-pulse" id="monster-health-text">
+              100/100 (100%)
+            </div>
+            
+            <!-- 怪物名稱 -->
+            <div class="absolute -top-8 left-1/2 transform -translate-x-1/2 text-sm md:text-base font-bold text-monsterLight" id="monster-name">
+              火焰怪龍
+            </div>
+          </div>
+        </div>
+        
+        <!-- 文字顯示區域 -->
+        <div class="bg-gray-800/70 rounded-xl p-6 mb-6 backdrop-blur-sm border border-gray-700 text-center">
+          <p class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold text-shadow mb-4" id="target-word">準備戰鬥！</p>
+          <div class="flex flex-wrap justify-center gap-2 mb-4" id="character-hints">
+            <!-- 文字提示會動態生成 -->
+          </div>
+        </div>
+        
+        <!-- 輸入區域 -->
+        <div class="mb-8">
+          <input 
+            type="text" 
+            id="input-field" 
+            placeholder="輸入上方文字並按Enter攻擊..." 
+            class="w-full px-6 py-4 text-xl bg-gray-700/50 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 text-center"
+          >
+          <div class="text-center mt-4">
+            <button id="submit-word" class="px-6 py-3 bg-primary hover:bg-primary/80 rounded-lg font-bold transition-all duration-300 mr-2">
+              攻擊 <i class="fa fa-bolt ml-1"></i>
+            </button>
+            <button id="skip-word" class="px-6 py-3 bg-gray-600 hover:bg-gray-500 rounded-lg font-bold transition-all duration-300">
+              跳過 <i class="fa fa-forward ml-1"></i>
+            </button>
+          </div>
+        </div>
+        
+        <!-- 狀態提示 -->
+        <div class="text-center text-xl font-bold min-h-[2rem]" id="status-message"></div>
+      </div>
+      
+      <!-- 結束畫面 (預設隱藏) -->
+      <div id="end-screen" class="hidden text-center py-12">
+        <div class="max-w-md mx-auto bg-gray-800/70 p-8 rounded-xl backdrop-blur-sm border border-gray-700 shadow-xl">
+          <h2 class="text-[clamp(1.8rem,3vw,2.5rem)] font-bold mb-4 text-danger" id="end-title">遊戲結束</h2>
+          <p class="text-gray-300 text-xl mb-2">最終分數: <span id="final-score" class="font-bold text-yellow-400">0</span></p>
+          <p class="text-gray-300 text-xl mb-2">達到等級: <span id="final-level" class="font-bold text-primary">1</span></p>
+          <p class="text-gray-300 text-xl mb-6">最高連擊: <span id="final-combo" class="font-bold text-secondary">0</span></p>
+          
+          <button id="restart-game" class="px-8 py-4 bg-gradient-to-r from-primary to-secondary rounded-lg text-xl font-bold shadow-xl hover:shadow-primary/50 transition-all duration-300 transform hover:scale-105">
+            重新開始 <i class="fa fa-refresh ml-2"></i>
+          </button>
+        </div>
+      </div>
+    </main>
+    
+    <!-- 頁腳 -->
+    <footer class="mt-12 text-center text-gray-400 text-sm">
+      <p>© 2025 中文打字打怪冒險 | 提升中文輸入速度與準確度</p>
+    </footer>
+  </div>
+  
+  <!-- 彈出傷害數字的容器 -->
+  <div id="damage-numbers-container" class="fixed inset-0 pointer-events-none z-50"></div>
+  
+  <script>
+    // 遊戲數據
+    const gameData = {
+      difficulty: 'easy', // 預設難度
+      playerHealth: 100,
+      monsterHealth: 100,
+      monsterMaxHealth: 100,
+      score: 0,
+      level: 1,
+      currentWord: '',
+      words: {
+        easy: ['你好', '世界', '電腦', '遊戲', '學習', '快樂', '朋友', '家庭', '工作', '學校', '音樂', '圖書', '運動', '美食', '旅行'],
+        medium: ['編程', '開發', '設計', '創意', '挑戰', '冒險', '探索', '智慧', '勇氣', '堅持', '成功', '努力', '夢想', '希望', '奇蹟'],
+        hard: ['精益求精', '孜孜不倦', '持之以恒', '全力以赴', '砥礪前行', '破繭成蝶', '精益求精', '奮發圖強', '不屈不撓', '勇往直前', '豁然開朗', '博大精深', '源遠流長', '名副其實', '瑕不掩瑜']
+      },
+      gameActive: false,
+      comboStreak: 0, // 連擊數
+      maxCombo: 0, // 最大連擊
+      monsterTypes: [
+        { name: '火焰怪龍', icon: 'fa-dragon', color: '#ef4444' },
+        { name: '幽冥惡魔', icon: 'fa-demon', color: '#7e22ce' },
+        { name: '幽靈精靈', icon: 'fa-ghost', color: '#8b5cf6' },
+        { name: '毒刺蜘蛛', icon: 'fa-spider', color: '#10b981' },
+        { name: '骷髏戰士', icon: 'fa-skull', color: '#9ca3af' }
+      ]
+    };
+    
+    // DOM元素
+    const elements = {
+      startScreen: document.getElementById('start-screen'),
+      gameScreen: document.getElementById('game-screen'),
+      endScreen: document.getElementById('end-screen'),
+      startGameBtn: document.getElementById('start-game'),
+      restartGameBtn: document.getElementById('restart-game'),
+      inputField: document.getElementById('input-field'),
+      submitWordBtn: document.getElementById('submit-word'),
+      skipWordBtn: document.getElementById('skip-word'),
+      targetWord: document.getElementById('target-word'),
+      characterHints: document.getElementById('character-hints'),
+      statusMessage: document.getElementById('status-message'),
+      playerHealth: document.getElementById('player-health'),
+      playerHealthFill: document.getElementById('player-health-fill'),
+      monsterHealthFill: document.getElementById('monster-health-fill'),
+      monsterHealthText: document.getElementById('monster-health-text'),
+      monsterIcon: document.getElementById('monster-icon'),
+      monsterName: document.getElementById('monster-name'),
+      score: document.getElementById('score'),
+      level: document.getElementById('level'),
+      endTitle: document.getElementById('end-title'),
+      finalScore: document.getElementById('final-score'),
+      finalLevel: document.getElementById('final-level'),
+      finalCombo: document.getElementById('final-combo'),
+      damageNumbersContainer: document.getElementById('damage-numbers-container'),
+      difficultyBtns: {
+        easy: document.getElementById('easy-mode'),
+        medium: document.getElementById('medium-mode'),
+        hard: document.getElementById('hard-mode')
+      }
+    };
+    
+    // 初始化難度按鈕
+    function initDifficultyButtons() {
+      // 預設選擇簡單模式
+      elements.difficultyBtns.easy.classList.add('ring-2', 'ring-white');
+      
+      // 為每個難度按鈕添加點擊事件
+      Object.entries(elements.difficultyBtns).forEach(([difficulty, btn]) => {
+        btn.addEventListener('click', () => {
+          // 移除所有按鈕的選中狀態
+          Object.values(elements.difficultyBtns).forEach(b => b.classList.remove('ring-2', 'ring-white'));
+          // 添加當前按鈕的選中狀態
+          btn.classList.add('ring-2', 'ring-white');
+          // 更新遊戲難度
+          gameData.difficulty = difficulty;
+        });
+      });
+    }
+    
+    // 隨機獲取一個詞語
+    function getRandomWord() {
+      const wordList = gameData.words[gameData.difficulty];
+      return wordList[Math.floor(Math.random() * wordList.length)];
+    }
+    
+    // 顯示當前詞語的提示
+    function displayWordHints(word) {
+      elements.characterHints.innerHTML = '';
+      
+      for (let i = 0; i < word.length; i++) {
+        const charDiv = document.createElement('div');
+        charDiv.className = 'w-12 h-12 md:w-14 md:h-14 bg-gray-700/50 rounded-lg flex items-center justify-center text-xl md:text-2xl border border-gray-600 transition-all duration-300';
+        charDiv.textContent = word[i];
+        charDiv.id = `char-${i}`;
+        elements.characterHints.appendChild(charDiv);
+      }
+    }
+    
+    // 生成傷害數字彈出效果
+    function showDamageNumber(damage, isPlayer = false) {
+      const damageDiv = document.createElement('div');
+      const color = isPlayer ? 'text-danger' : 'text-success';
+      const position = isPlayer ? 
+        'left-[20%] md:left-[30%]' : 
+        'right-[20%] md:right-[30%]';
+      
+      damageDiv.className = `absolute ${position} top-1/2 transform -translate-y-1/2 text-2xl font-bold ${color} animate-fade-up`;
+      damageDiv.textContent = isPlayer ? `-${damage}` : `+${damage}`;
+      
+      // 添加動畫
+      damageDiv.style.animation = 'fadeUp 1s ease-out forwards';
+      
+      elements.damageNumbersContainer.appendChild(damageDiv);
+      
+      // 移除元素
+      setTimeout(() => {
+        damageDiv.remove();
+      }, 1000);
+    }
+    
+    // 添加動畫關鍵幀
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes fadeUp {
+        0% { opacity: 1; transform: translate(-50%, -50%); }
+        100% { opacity: 0; transform: translate(-50%, -100px); }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    // 更新遊戲狀態
+    function updateGameStatus() {
+      elements.playerHealth.textContent = gameData.playerHealth;
+      elements.playerHealthFill.style.width = `${gameData.playerHealth}%`;
+      
+      // 更新怪物血量顯示（數值+百分比）
+      const monsterHealthPercent = Math.round((gameData.monsterHealth / gameData.monsterMaxHealth) * 100);
+      elements.monsterHealthFill.style.width = `${monsterHealthPercent}%`;
+      elements.monsterHealthText.textContent = `${Math.max(0, gameData.monsterHealth)}/${gameData.monsterMaxHealth} (${monsterHealthPercent}%)`;
+      
+      // 怪物血量低於30%時添加警告效果
+      if (monsterHealthPercent <= 30) {
+        elements.monsterHealthText.classList.add('text-danger', 'animate-pulse');
+      } else {
+        elements.monsterHealthText.classList.remove('text-danger', 'animate-pulse');
+      }
+      
+      elements.score.textContent = gameData.score;
+      elements.level.textContent = gameData.level;
+      
+      // 根據生命值改變顏色
+      if (gameData.playerHealth <= 30) {
+        elements.playerHealthFill.classList.remove('bg-success', 'bg-yellow-500');
+        elements.playerHealthFill.classList.add('bg-danger');
+      } else if (gameData.playerHealth <= 70) {
+        elements.playerHealthFill.classList.remove('bg-success', 'bg-danger');
+        elements.playerHealthFill.classList.add('bg-yellow-500');
+      } else {
+        elements.playerHealthFill.classList.remove('bg-yellow-500', 'bg-danger');
+        elements.playerHealthFill.classList.add('bg-success');
+      }
+      
+      // 升級判斷
+      const nextLevelScore = gameData.level * 100;
+      if (gameData.score >= nextLevelScore && gameData.level < 10) {
+        gameData.level++;
+        gameData.playerHealth = Math.min(100, gameData.playerHealth + 20); // 升級回血
+        showStatusMessage(`升級到${gameData.level}級！生命值回復！`, 'success');
+      }
+    }
+    
+    // 顯示狀態消息
+    function showStatusMessage(message, type = 'info') {
+      elements.statusMessage.textContent = message;
+      
+      // 設置消息顏色
+      elements.statusMessage.className = 'text-center text-xl font-bold min-h-[2rem]';
+      
+      if (type === 'success') {
+        elements.statusMessage.classList.add('text-success', 'type-correct');
+      } else if (type === 'error') {
+        elements.statusMessage.classList.add('text-danger', 'type-error');
+      } else if (type === 'warning') {
+        elements.statusMessage.classList.add('text-yellow-400');
+      }
+      
+      // 3秒後清除消息
+      setTimeout(() => {
+        elements.statusMessage.textContent = '';
+        elements.statusMessage.className = 'text-center text-xl font-bold min-h-[2rem]';
+      }, 3000);
+    }
+    
+    // 處理攻擊
+    function handleAttack() {
+      const userInput = elements.inputField.value.trim();
+      
+      if (!userInput) {
+        showStatusMessage('請輸入文字後攻擊！', 'warning');
+        return;
+      }
+      
+      // 檢查輸入是否正確
+      if (userInput === gameData.currentWord) {
+        // 計算傷害 (根據難度和連擊數)
+        let damage = gameData.difficulty === 'easy' ? 20 : 
+                    gameData.difficulty === 'medium' ? 15 : 10;
+        
+        // 連擊加成
+        gameData.comboStreak++;
+        gameData.maxCombo = Math.max(gameData.maxCombo, gameData.comboStreak);
+        damage = Math.round(damage * (1 + gameData.comboStreak * 0.1));
+        
+        // 怪物受到傷害
+        gameData.monsterHealth -= damage;
+        showDamageNumber(damage);
+        showStatusMessage(`攻擊成功！造成${damage}點傷害！連擊x${gameData.comboStreak}`, 'success');
+        
+        // 怪物受傷動畫
+        const monster = document.getElementById('monster');
+        monster.classList.add('damage-flash');
+        setTimeout(() => {
+          monster.classList.remove('damage-flash');
+        }, 300);
+        
+        // 增加分數
+        const scoreGain = gameData.difficulty === 'easy' ? 10 : 
+                         gameData.difficulty === 'medium' ? 20 : 30;
+        gameData.score += scoreGain * gameData.comboStreak;
+        
+        // 檢查怪物是否被消滅
+        if (gameData.monsterHealth <= 0) {
+          showStatusMessage('怪物被消滅！準備迎接下一隻！', 'success');
+          setTimeout(spawnNewMonster, 1500);
+        } else {
+          // 準備下一個詞語
+          setTimeout(nextWord, 1000);
+        }
+      } else {
+        // 輸入錯誤，玩家受到傷害
+        gameData.comboStreak = 0; // 重置連擊
+        const damage = gameData.difficulty === 'easy' ? 5 : 
+                      gameData.difficulty === 'medium' ? 8 : 12;
+        
+        gameData.playerHealth -= damage;
+        elements.gameScreen.classList.add('damage-flash');
+        showDamageNumber(damage, true);
+        showStatusMessage(`輸入錯誤！受到${damage}點傷害！`, 'error');
+        
+        // 怪物攻擊動畫
+        const monster = document.getElementById('monster');
+        monster.classList.add('monster-attack');
+        setTimeout(() => {
+          monster.classList.remove('monster-attack');
+        }, 500);
+        
+        // 移除閃爍效果
+        setTimeout(() => {
+          elements.gameScreen.classList.remove('damage-flash');
+        }, 300);
+        
+        // 檢查玩家是否陣亡
+        if (gameData.playerHealth <= 0) {
+          gameData.playerHealth = 0;
+          endGame(false);
+        }
+      }
+      
+      // 更新遊戲狀態
+      updateGameStatus();
+      
+      // 清空輸入框
+      elements.inputField.value = '';
+    }
+    
+    // 生成新怪物
+    function spawnNewMonster() {
+      // 隨機選擇怪物類型
+      const randomMonster = gameData.monsterTypes[Math.floor(Math.random() * gameData.monsterTypes.length)];
+      
+      // 根據等級提升怪物血量
+      const baseHealth = gameData.difficulty === 'easy' ? 100 : 
+                        gameData.difficulty === 'medium' ? 150 : 200;
+      gameData.monsterMaxHealth = Math.min(800, baseHealth + (gameData.level - 1) * 40);
+      gameData.monsterHealth = gameData.monsterMaxHealth;
+      
+      // 更新怪物外觀和信息
+      elements.monsterIcon.className = `fa ${randomMonster.icon} text-6xl md:text-8xl text-black/70 relative z-10`;
+      elements.monsterName.textContent = randomMonster.name;
+      
+      // 更新怪物顏色主題
+      const monsterElement = document.getElementById('monster');
+      monsterElement.querySelector('div:nth-child(2)').style.background = `linear-gradient(to br, ${randomMonster.color}, ${darkenColor(randomMonster.color, 0.3)})`;
+      monsterElement.querySelector('div:nth-child(2)').style.borderColor = `${lightenColor(randomMonster.color, 0.3)}`;
+      elements.monsterHealthFill.style.background = `linear-gradient(to right, #ef4444, ${randomMonster.color})`;
+      elements.monsterHealthText.style.color = randomMonster.color;
+      
+      // 準備下一個詞語
+      nextWord();
+      
+      showStatusMessage(`兇猛的${randomMonster.name}出現了！`, 'warning');
+    }
+    
+    // 顏色處理工具函數
+    function darkenColor(color, factor) {
+      const hex = color.replace('#', '');
+      const r = parseInt(hex.substr(0, 2), 16);
+      const g = parseInt(hex.substr(2, 2), 16);
+      const b = parseInt(hex.substr(4, 2), 16);
+      
+      return `rgb(${Math.floor(r * (1 - factor))}, ${Math.floor(g * (1 - factor))}, ${Math.floor(b * (1 - factor))})`;
+    }
+    
+    function lightenColor(color, factor) {
+      const hex = color.replace('#', '');
+      const r = parseInt(hex.substr(0, 2), 16);
+      const g = parseInt(hex.substr(2, 2), 16);
+      const b = parseInt(hex.substr(4, 2), 16);
+      
+      return `rgb(${Math.min(255, Math.floor(r * (1 + factor)))}, ${Math.min(255, Math.floor(g * (1 + factor)))}, ${Math.min(255, Math.floor(b * (1 + factor)))})`;
+    }
+    
+    // 跳過當前詞語 (懲罰)
+    function skipWord() {
+      gameData.comboStreak = 0; // 重置連擊
+      gameData.playerHealth = Math.max(0, gameData.playerHealth - 10); // 扣血懲罰
+      showStatusMessage('跳過詞語，受到10點懲罰！', 'warning');
+      
+      // 檢查玩家是否陣亡
+      if (gameData.playerHealth <= 0) {
+        gameData.playerHealth = 0;
+        endGame(false);
+      } else {
+        nextWord();
+      }
+      
+      updateGameStatus();
+      elements.inputField.value = '';
+    }
+    
+    // 下一詞語
+    function nextWord() {
+      gameData.currentWord = getRandomWord();
+      elements.targetWord.textContent = gameData.currentWord;
+      displayWordHints(gameData.currentWord);
+      
+      // 設置焦點到輸入框
+      elements.inputField.focus();
+    }
+    
+    // 開始遊戲
+    function startGame() {
+      // 重置遊戲數據
+      gameData.playerHealth = 100;
+      gameData.monsterMaxHealth = gameData.difficulty === 'easy' ? 100 : 
+                                 gameData.difficulty === 'medium' ? 150 : 200;
+      gameData.monsterHealth = gameData.monsterMaxHealth;
+      gameData.score = 0;
+      gameData.level = 1;
+      gameData.comboStreak = 0;
+      gameData.maxCombo = 0;
+      gameData.gameActive = true;
+      
+      // 更新UI
+      elements.startScreen.classList.add('hidden');
+      elements.gameScreen.classList.remove('hidden');
+      elements.endScreen.classList.add('hidden');
+      
+      // 生成第一個怪物和詞語
+      spawnNewMonster();
+      
+      // 更新遊戲狀態
+      updateGameStatus();
+      
+      // 設置焦點到輸入框
+      elements.inputField.focus();
+    }
+    
+    // 結束遊戲
+    function endGame(isVictory = false) {
+      gameData.gameActive = false;
+      
+      // 更新結束畫面
+      elements.gameScreen.classList.add('hidden');
+      elements.endScreen.classList.remove('hidden');
+      
+      if (isVictory) {
+        elements.endTitle.textContent = '通關成功！';
+        elements.endTitle.className = 'text-[clamp(1.8rem,3vw,2.5rem)] font-bold mb-4 text-success';
+        showStatusMessage('恭喜你打敗了所有怪物！', 'success');
+      } else {
+        elements.endTitle.textContent = '遊戲結束';
+        elements.endTitle.className = 'text-[clamp(1.8rem,3vw,2.5rem)] font-bold mb-4 text-danger';
+      }
+      
+      elements.finalScore.textContent = gameData.score;
+      elements.finalLevel.textContent = gameData.level;
+      elements.finalCombo.textContent = gameData.maxCombo;
+    }
+    
+    // 初始化事件監聽器
+    function initEventListeners() {
+      // 開始遊戲按鈕
+      elements.startGameBtn.addEventListener('click', startGame);
+      
+      // 重新開始按鈕
+      elements.restartGameBtn.addEventListener('click', () => {
+        elements.endScreen.classList.add('hidden');
+        elements.startScreen.classList.remove('hidden');
+        
+        // 重置難度選擇
+        Object.values(elements.difficultyBtns).forEach(b => b.classList.remove('ring-2', 'ring-white'));
+        elements.difficultyBtns.easy.classList.add('ring-2', 'ring-white');
+        gameData.difficulty = 'easy';
+      });
+      
+      // 提交按鈕
+      elements.submitWordBtn.addEventListener('click', handleAttack);
+      
+      // 跳過按鈕
+      elements.skipWordBtn.addEventListener('click', skipWord);
+      
+      // 輸入框按Enter提交
+      elements.inputField.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && gameData.gameActive) {
+          handleAttack();
+        }
+      });
+    }
+    
+    // 初始化遊戲
+    function initGame() {
+      initDifficultyButtons();
+      initEventListeners();
+    }
+    
+    // 啟動遊戲
+    document.addEventListener('DOMContentLoaded', initGame);
+  </script>
+</body>
+</html>
